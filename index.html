@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>背景特化型プロンプト生成アプリ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .container {
+            background-color: #2d3748;
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        textarea, .prompt-output, input[type="password"] {
+            background-color: #4a5568;
+            border-radius: 0.5rem;
+            border: 1px solid #718096;
+            color: #e2e8f0;
+            padding: 1rem;
+            resize: none;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .copy-button, #login-button {
+            background-color: #4299e1;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        .copy-button:hover, #login-button:hover {
+            background-color: #3182ce;
+        }
+        .copy-success {
+            color: #68d391;
+            font-weight: 600;
+            margin-left: 0.5rem;
+            transition: opacity 0.5s;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container flex flex-col space-y-6">
+    <h1 class="text-3xl md:text-4xl font-bold text-center mb-4 text-white">背景特化型プロンプト生成アプリ</h1>
+    <p class="text-center text-sm md:text-base text-gray-400">テーマを入力すると、画像生成AIのための詳細な背景プロンプトを生成します。</p>
+
+    <!-- ログインフォーム -->
+    <div id="login-container" class="flex flex-col items-center space-y-4">
+        <label for="password-input" class="text-lg text-gray-200">パスワードを入力してください:</label>
+        <input type="password" id="password-input" class="w-full max-w-sm rounded-lg" placeholder="パスワード">
+        <button id="login-button" class="w-full max-w-sm py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-bold text-lg transition-colors duration-200">ログイン</button>
+        <div id="login-error" class="text-red-400 font-semibold hidden">パスワードが間違っています。</div>
+    </div>
+
+    <!-- メインアプリケーションコンテンツ (初期状態では非表示) -->
+    <div id="app-content" class="hidden flex flex-col space-y-6">
+        <!-- テーマ入力エリア -->
+        <div class="flex flex-col space-y-2">
+            <label for="theme-input" class="text-lg text-gray-200">テーマを入力してください:</label>
+            <textarea id="theme-input" class="w-full h-24" placeholder="例：桜が舞う未来のサイバーパンク都市"></textarea>
+        </div>
+
+        <!-- 生成ボタン -->
+        <button id="generate-button" class="w-full flex items-center justify-center space-x-2 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-bold text-lg transition-colors duration-200">
+            <span id="button-text">プロンプトを生成</span>
+            <div id="spinner" class="hidden spinner"></div>
+        </button>
+
+        <!-- プロンプト出力エリア -->
+        <div class="flex flex-col md:flex-row md:space-x-4 space-y-6 md:space-y-0">
+            <!-- 日本語プロンプト -->
+            <div class="flex-1 flex flex-col space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-lg text-gray-200">日本語プロンプト</span>
+                    <div class="flex items-center">
+                        <button id="copy-jp-button" class="copy-button">コピー</button>
+                        <span id="copy-jp-success" class="copy-success opacity-0">コピーしました！</span>
+                    </div>
+                </div>
+                <div id="jp-prompt" class="prompt-output min-h-[100px] select-all"></div>
+            </div>
+
+            <!-- 英語プロンプト -->
+            <div class="flex-1 flex flex-col space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-lg text-gray-200">英語プロンプト</span>
+                    <div class="flex items-center">
+                        <button id="copy-en-button" class="copy-button">コピー</button>
+                        <span id="copy-en-success" class="copy-success opacity-0">Copied!</span>
+                    </div>
+                </div>
+                <div id="en-prompt" class="prompt-output min-h-[100px] select-all"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const passwordInput = document.getElementById('password-input');
+    const loginButton = document.getElementById('login-button');
+    const loginContainer = document.getElementById('login-container');
+    const appContent = document.getElementById('app-content');
+    const loginError = document.getElementById('login-error');
+
+    const themeInput = document.getElementById('theme-input');
+    const generateButton = document.getElementById('generate-button');
+    const jpPromptDiv = document.getElementById('jp-prompt');
+    const enPromptDiv = document.getElementById('en-prompt');
+    const copyJpButton = document.getElementById('copy-jp-button');
+    const copyEnButton = document.getElementById('copy-en-button');
+    const copyJpSuccess = document.getElementById('copy-jp-success');
+    const copyEnSuccess = document.getElementById('copy-en-success');
+    const buttonText = document.getElementById('button-text');
+    const spinner = document.getElementById('spinner');
+
+    const apiKey = "";
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+    // ログイン処理
+    loginButton.addEventListener('click', () => {
+        const password = passwordInput.value;
+        if (password === '1234') {
+            loginContainer.classList.add('hidden');
+            appContent.classList.remove('hidden');
+        } else {
+            loginError.classList.remove('hidden');
+            setTimeout(() => {
+                loginError.classList.add('hidden');
+            }, 3000);
+        }
+    });
+
+    const generatePrompt = async (theme) => {
+        // ロード状態を更新
+        buttonText.textContent = '生成中...';
+        spinner.classList.remove('hidden');
+        generateButton.disabled = true;
+
+        const systemPrompt = `ユーザーが指定したテーマに基づいて、画像生成AIのための非常に詳細で高品質な背景プロンプトを生成してください。プロンプトは日本語と英語の両方で出力してください。
+
+- 日本語プロンプト: 簡潔かつ記述的に。
+- 英語プロンプト: 非常に詳細に、カメラアングル、照明、質感、時間帯、雰囲気、具体的な視覚的要素などを含めて記述してください。キーワードをカンマで区切って羅列し、単一の長い文章にしてください。
+- 出力は必ず指定されたJSON形式に準拠してください。`;
+
+        const userQuery = `テーマ: ${theme}`;
+
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                        "japanese": { "type": "STRING" },
+                        "english": { "type": "STRING" }
+                    },
+                    propertyOrdering: ["japanese", "english"]
+                }
+            }
+        };
+
+        let response = null;
+        let retryCount = 0;
+        const maxRetries = 3;
+        const baseDelay = 1000;
+
+        while (retryCount < maxRetries) {
+            try {
+                response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    break;
+                } else if (response.status === 429) { // Rate limit error
+                    const delay = baseDelay * Math.pow(2, retryCount);
+                    console.log(`Rate limit exceeded. Retrying in ${delay / 1000} seconds...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    retryCount++;
+                } else {
+                    console.error("API error:", response.statusText);
+                    throw new Error("API call failed.");
+                }
+            } catch (error) {
+                console.error("Fetch error:", error);
+                throw error;
+            }
+        }
+
+        if (!response || !response.ok) {
+            jpPromptDiv.textContent = "プロンプトの生成に失敗しました。時間をおいて再度お試しください。";
+            enPromptDiv.textContent = "Failed to generate prompt. Please try again later.";
+            buttonText.textContent = '生成';
+            spinner.classList.add('hidden');
+            generateButton.disabled = false;
+            return;
+        }
+
+        try {
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+            const content = candidate?.content?.parts?.[0]?.text;
+
+            if (content) {
+                const parsedContent = JSON.parse(content);
+                jpPromptDiv.textContent = parsedContent.japanese;
+                enPromptDiv.textContent = parsedContent.english;
+            } else {
+                jpPromptDiv.textContent = "プロンプトが見つかりませんでした。";
+                enPromptDiv.textContent = "No prompt found.";
+            }
+        } catch (error) {
+            console.error("Failed to parse response:", error);
+            jpPromptDiv.textContent = "レスポンスの解析に失敗しました。";
+            enPromptDiv.textContent = "Failed to parse the response.";
+        } finally {
+            buttonText.textContent = 'プロンプトを生成';
+            spinner.classList.add('hidden');
+            generateButton.disabled = false;
+        }
+    };
+
+    generateButton.addEventListener('click', () => {
+        const theme = themeInput.value.trim();
+        if (theme) {
+            generatePrompt(theme);
+        } else {
+            jpPromptDiv.textContent = "テーマを入力してください。";
+            enPromptDiv.textContent = "Please enter a theme.";
+        }
+    });
+
+    const copyToClipboard = (text, successElement) => {
+        if (!text) return;
+        
+        // navigator.clipboardを使用（推奨）
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(() => {
+                successElement.classList.add('opacity-100');
+                setTimeout(() => {
+                    successElement.classList.remove('opacity-100');
+                }, 1500);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
+        } else {
+            // navigator.clipboardが使えない場合のフォールバック
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                successElement.classList.add('opacity-100');
+                setTimeout(() => {
+                    successElement.classList.remove('opacity-100');
+                }, 1500);
+            } catch (err) {
+                console.error('Fallback: Failed to copy text: ', err);
+            }
+            document.body.removeChild(textarea);
+        }
+    };
+
+    copyJpButton.addEventListener('click', () => {
+        copyToClipboard(jpPromptDiv.textContent, copyJpSuccess);
+    });
+
+    copyEnButton.addEventListener('click', () => {
+        copyToClipboard(enPromptDiv.textContent, copyEnSuccess);
+    });
+
+</script>
+
+</body>
+</html>
