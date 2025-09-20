@@ -3,284 +3,359 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>実写画像生成アプリ</title>
-    <!-- Tailwind CSS CDN -->
+    <title>AI画像プロンプトジェネレーター</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            color: #1f2937;
+            background-color: #1a202c;
+            color: #e2e8f0;
         }
-
-        .image-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1.5rem; /* Tailwind 'gap-6' */
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 1.5rem;
+            background-color: #2d3748;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .step-container {
+            min-height: 250px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .option-button {
+            transition: all 0.2s ease-in-out;
+        }
+        .option-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .option-button.selected {
+            background-color: #4a5568;
+            border-color: #4299e1;
+            transform: scale(1.02);
+        }
+        #messageBox {
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0s, opacity 0.5s linear;
+        }
+        #messageBox.show {
+            visibility: visible;
+            opacity: 1;
         }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen p-4 md:p-8">
-    <div class="bg-white p-6 md:p-10 rounded-3xl shadow-2xl w-full max-w-2xl text-center">
-        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">実写画像ジェネレーター</h1>
-        <p class="text-gray-600 mb-8">テキストプロンプトを入力すると、1枚のユニークな実写画像が自動的に生成されます。</p>
+<body class="p-4">
+    <div class="container text-center">
+        <h1 class="text-3xl font-bold mb-4 text-white">AI画像 プロンプトジェネレーター</h1>
+        <p class="text-gray-400 mb-6">ステップごとに要素を選んで、オリジナルプロンプトを作成しよう！</p>
 
-        <form id="image-form" class="space-y-6">
-            <input type="text" id="prompt-input" placeholder="例：美しい夕日の下を歩く犬" class="w-full px-5 py-3 text-gray-800 placeholder-gray-400 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-500 focus:border-transparent transition duration-300 ease-in-out" required>
-            
-            <button type="submit" id="generate-button" class="w-full px-6 py-3 font-semibold text-white bg-blue-600 rounded-xl shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 transition duration-300 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
-                画像を生成
+        <!-- Current Step View -->
+        <div id="step-view" class="step-container">
+            <!-- Content will be dynamically added here by JavaScript -->
+        </div>
+
+        <!-- Prompt Display and Copy Section -->
+        <div class="mt-8 pt-4 border-t border-gray-600">
+            <h2 class="text-xl font-semibold mb-2 text-white">現在のプロンプト</h2>
+            <div class="bg-gray-700 p-4 rounded-lg mb-4 text-gray-200 break-words" id="prompt-display"></div>
+            <button id="copy-button" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-blue-700 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800">
+                プロンプトをコピーして生成
             </button>
-        </form>
-
-        <div id="loading-spinner" class="mt-8 hidden">
-            <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-e-transparent align-[-0.125em] text-blue-600" role="status">
-                <span class="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">読み込み中...</span>
-            </div>
-            <p class="text-gray-500 mt-2">画像を生成中...</p>
+            <button id="refresh-button" class="mt-4 w-full bg-gray-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-gray-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 focus:ring-offset-gray-800">
+                人数以外を更新
+            </button>
         </div>
 
-        <div id="image-container" class="mt-8 image-grid">
-            <!-- 生成された画像がここに表示されます -->
-        </div>
-
-        <button id="download-button" class="mt-6 w-full px-6 py-3 font-semibold text-white bg-green-600 rounded-xl shadow-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50 transition duration-300 ease-in-out hidden">
-            選択した画像をダウンロード
-        </button>
-
-        <!-- カスタムモーダルメッセージボックス -->
-        <div id="message-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-900 bg-opacity-50 p-4">
-            <div class="bg-white rounded-xl p-8 max-w-sm text-center shadow-lg">
-                <p id="modal-text" class="text-gray-800 font-semibold mb-4"></p>
-                <button id="modal-close-button" class="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition">OK</button>
-            </div>
+        <!-- Message Box -->
+        <div id="messageBox" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-green-600 text-white py-2 px-4 rounded-full shadow-xl">
+            コピーしました！
         </div>
     </div>
 
     <script>
-        // DOM要素の取得
-        const form = document.getElementById('image-form');
-        const promptInput = document.getElementById('prompt-input');
-        const generateButton = document.getElementById('generate-button');
-        const loadingSpinner = document.getElementById('loading-spinner');
-        const imageContainer = document.getElementById('image-container');
-        const downloadButton = document.getElementById('download-button');
-        const messageModal = document.getElementById('message-modal');
-        const modalText = document.getElementById('modal-text');
-        const modalCloseButton = document.getElementById('modal-close-button');
-
-        // プロンプトのバリエーションに使用する単語リスト
-        const styles = ['超高精細', '写真写実的', '映画のような照明', 'ポートレート', 'デジタルアート', 'コンセプトアート', 'コミックアート', 'ピクセルアート', '水彩画', '油絵', 'インク画'];
-        const cameras = ['一眼レフカメラで撮影', '手持ちカメラ', '広角レンズ', '望遠レンズ', 'ドローンからの眺め', 'マクロレンズ', 'シネマティックカメラ', 'ヴィンテージレンズ', 'パンショット', 'ティルトショット', 'ズームイン', 'ズームアウト', 'クレーンショット', 'ドリーショット', '手ブレ補正付き'];
-        const lightings = ['自然光', '柔らかな照明', 'ゴールデンアワー', 'ドラマチックな影', 'スタジオ照明', '蛍光灯', 'ネオンサイン', '逆光', '夕暮れ時の光'];
-        const locations = ['都市の風景', '自然の風景', '室内', '屋上', '宇宙空間', '水中', 'ジャングル', '廃墟', '古代の遺跡'];
-        const perspectives = ['ローアングル', 'ハイアングル', '一人称視点', 'クローズアップショット', '全身ショット', '遠景', '鳥瞰図', 'アイレベルショット', 'ショルダーショット', 'ヒップショット', '地面からの視点', '空中からの視点'];
-
-        // メッセージモーダルを表示する関数
-        function showMessage(message) {
-            modalText.textContent = message;
-            messageModal.classList.remove('hidden');
-            modalText.classList.remove('hidden');
-            modalCloseButton.classList.remove('hidden');
-            messageModal.classList.add('flex');
-        }
-
-        // メッセージモーダルを非表示にする関数
-        function hideMessage() {
-            modalText.textContent = "";
-            messageModal.classList.add('hidden');
-            messageModal.classList.remove('flex');
-        }
-
-        modalCloseButton.addEventListener('click', hideMessage);
-
-        /**
-         * 指数バックオフ付きのフェッチ関数
-         * @param {string} url - API URL
-         * @param {object} options - フェッチオプション
-         * @param {number} retries - 残りの再試行回数
-         * @param {number} delay - 次の再試行までの遅延時間（ミリ秒）
-         */
-        async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
-            try {
-                const response = await fetch(url, options);
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`APIエラー: ${response.statusText}. 詳細: ${JSON.stringify(errorData)}`);
+        document.addEventListener('DOMContentLoaded', () => {
+            const BASE_PROMPT_PARTS = {
+                clothing: 'wearing white sailor uniform blouses and short navy blue pleated skirts',
+                style: 'a realistic smartphone photo style'
+            };
+            
+            // Static step for person count
+            const staticSteps = [
+                {
+                    title: '1. 人数を選んでみましょう',
+                    options: [
+                        { name: '1人', subject: 'a single person, a slender, large-breasted 20-year-old Japanese actress' },
+                        { name: '2人', subject: 'two people, a pair of slender, large-breasted 20-year-old Japanese actresses' },
+                        { name: '3人', subject: 'three people, a trio of slender, large-breasted 20-year-old Japanese actresses' },
+                        { name: '複数人', subject: 'a group of people, several slender, large-breasted 20-year-old Japanese actresses' }
+                    ]
                 }
-                return response;
-            } catch (error) {
-                if (retries > 0) {
-                    console.warn(`フェッチ失敗。再試行... 残り: ${retries}`);
-                    await new Promise(res => setTimeout(res, delay));
-                    return fetchWithRetry(url, options, retries - 1, delay * 2);
-                } else {
-                    throw error;
-                }
-            }
-        }
-        
-        /**
-         * 画像を特定の寸法にリサイズする関数
-         * @param {string} base64Data - リサイズする画像のBase64データ
-         * @param {number} targetWidth - ターゲットの幅
-         * @param {number} targetHeight - ターゲットの高さ
-         * @returns {Promise<string>} - リサイズされた画像のデータURL
-         */
-        function resizeImage(base64Data, targetWidth, targetHeight) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = targetWidth;
-                    canvas.height = targetHeight;
-                    const ctx = canvas.getContext('2d');
-                    // 画像の元の縦横比を維持しながら描画
-                    const originalAspect = img.width / img.height;
-                    const targetAspect = targetWidth / targetHeight;
-                    let drawWidth, drawHeight, offsetX, offsetY;
-                    if (originalAspect > targetAspect) {
-                        drawHeight = targetHeight;
-                        drawWidth = img.width * (targetHeight / img.height);
-                        offsetX = (targetWidth - drawWidth) / 2;
-                        offsetY = 0;
-                    } else {
-                        drawWidth = targetWidth;
-                        drawHeight = img.height * (targetWidth / img.width);
-                        offsetX = 0;
-                        offsetY = (targetHeight - drawHeight) / 2;
-                    }
-                    ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-                    resolve(canvas.toDataURL('image/png'));
+            ];
+
+            let steps = [];
+            let currentStepIndex = 0;
+            let generatedPrompt = '';
+            let selectedOptions = Array(staticSteps.length + 5).fill(null); // 5 is the number of dynamic steps
+
+            const stepView = document.getElementById('step-view');
+            const promptDisplay = document.getElementById('prompt-display');
+            const copyButton = document.getElementById('copy-button');
+            const refreshButton = document.getElementById('refresh-button');
+            const messageBox = document.getElementById('messageBox');
+            
+            // API key is empty as it will be provided by the runtime
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            // Function to generate dynamic steps by using the Gemini API
+            async function generateDynamicSteps() {
+                // Display loading state
+                stepView.innerHTML = '<div class="text-white text-lg animate-pulse">新しい要素を生成中...</div>';
+                refreshButton.disabled = true;
+
+                // AIに日本語の要素名と英語のプロンプト用フレーズを生成するよう指示する
+                const userQuery = "Generate a JSON array with 4 completely original and creative options for each of the following categories: 'accessories', 'backgrounds', 'poses', 'angles', 'accents'. Each option must have a clear, concise Japanese 'name' and an English 'phrase' suitable for an AI image generation prompt. The subject is a 20-year-old Japanese actress in a sailor uniform. Ensure the phrases are descriptive and varied. Return only the JSON.";
+                
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                accessories: {
+                                    type: "ARRAY",
+                                    items: { type: "OBJECT", properties: { name: { type: "STRING" }, phrase: { type: "STRING" } } }
+                                },
+                                backgrounds: {
+                                    type: "ARRAY",
+                                    items: { type: "OBJECT", properties: { name: { type: "STRING" }, phrase: { type: "STRING" } } }
+                                },
+                                poses: {
+                                    type: "ARRAY",
+                                    items: { type: "OBJECT", properties: { name: { type: "STRING" }, phrase: { type: "STRING" } } }
+                                },
+                                angles: {
+                                    type: "ARRAY",
+                                    items: { type: "OBJECT", properties: { name: { type: "STRING" }, phrase: { type: "STRING" } } }
+                                },
+                                accents: {
+                                    type: "ARRAY",
+                                    items: { type: "OBJECT", properties: { name: { type: "STRING" }, phrase: { type: "STRING" } } }
+                                }
+                            }
+                        }
+                    },
                 };
-                img.src = `data:image/png;base64,${base64Data}`;
-            });
-        }
-        
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const userPrompt = promptInput.value.trim();
 
-            if (!userPrompt) {
-                showMessage("プロンプトを入力してください。");
-                return;
-            }
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
 
-            // UIの状態を更新
-            generateButton.disabled = true;
-            generateButton.textContent = "生成中...";
-            loadingSpinner.classList.remove('hidden');
-            imageContainer.innerHTML = '';
-            downloadButton.classList.add('hidden'); // ダウンロードボタンを非表示にする
-
-            try {
-                const totalImages = 1;
-                const generationPromises = [];
-
-                // 1枚の画像を生成するためのPromiseを配列に追加
-                for (let i = 0; i < totalImages; i++) {
-                    const randomStyle = styles[Math.floor(Math.random() * styles.length)];
-                    const randomCamera = cameras[Math.floor(Math.random() * cameras.length)];
-                    const randomLighting = lightings[Math.floor(Math.random() * lightings.length)];
-                    const randomLocation = locations[Math.floor(Math.random() * locations.length)];
-                    const randomPerspective = perspectives[Math.floor(Math.random() * perspectives.length)];
-
-                    const formattedPrompt = `${userPrompt}, ${randomStyle}, ${randomCamera}, ${randomLighting}, ${randomLocation}, ${randomPerspective}`;
-
-                    const payload = {
-                        instances: [{ prompt: formattedPrompt }],
-                        parameters: {
-                            "sampleCount": 1
-                        }
-                    };
-
-                    const apiKey = "";
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
-
-                    // Promiseを配列に追加
-                    generationPromises.push(
-                        fetchWithRetry(apiUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        })
-                        .then(response => response.json())
-                        .catch(error => {
-                            console.error(`画像の生成に失敗しました（${i + 1}回目）:`, error);
-                            return null; // 失敗した場合はnullを返す
-                        })
-                    );
-                }
-
-                // すべてのPromiseが完了するまで待機
-                const results = await Promise.all(generationPromises);
-                let successfulImages = 0;
-
-                for (const result of results) {
-                    if (result && result.predictions && result.predictions.length > 0) {
-                        const prediction = result.predictions[0];
-                        if (prediction.bytesBase64Encoded) {
-                            // 画像のリサイズ
-                            const resizedImageUrl = await resizeImage(prediction.bytesBase64Encoded, 270, 480);
-
-                            const imageWrapper = document.createElement('div');
-                            // 画像の選択を可能にするために'relative'クラスを追加し、クリックリスナーを追加
-                            imageWrapper.className = "relative aspect-[9/16] overflow-hidden rounded-2xl shadow-xl border-4 border-transparent hover:border-blue-500 transition-all cursor-pointer";
-                            
-                            const imgElement = document.createElement('img');
-                            imgElement.src = resizedImageUrl;
-                            imgElement.alt = userPrompt;
-                            imgElement.className = "w-full h-full object-cover";
-
-                            // クリックイベントリスナーを追加して選択状態を切り替える
-                            imageWrapper.addEventListener('click', () => {
-                                // 選択状態をトグル
-                                imageWrapper.classList.toggle('border-blue-500');
-                                imageWrapper.classList.toggle('border-transparent');
-                                imageWrapper.classList.toggle('selected');
-                            });
-
-                            imageWrapper.appendChild(imgElement);
-                            imageContainer.appendChild(imageWrapper);
-                            successfulImages++;
-                        }
+                    if (!response.ok) {
+                        throw new Error(`API request failed with status: ${response.status}`);
                     }
-                }
+                    
+                    const result = await response.json();
+                    const jsonString = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!jsonString) {
+                        throw new Error('API response format is invalid.');
+                    }
+                    const dynamicOptions = JSON.parse(jsonString);
 
-                if (successfulImages === 0) {
-                    showMessage("画像の生成に失敗しました。別のプロンプトを試してください。");
+                    const dynamicSteps = [
+                        { title: '2. 小物を選んでみましょう', options: dynamicOptions.accessories },
+                        { title: '3. 背景を選んでみましょう', options: dynamicOptions.backgrounds },
+                        { title: '4. ポーズを選んでみましょう', options: dynamicOptions.poses },
+                        { title: '5. アングルを選んでみましょう', options: dynamicOptions.angles },
+                        { title: '6. アクセントを追加してみましょう', options: dynamicOptions.accents },
+                    ];
+                    
+                    refreshButton.disabled = false;
+                    return dynamicSteps;
+                } catch (error) {
+                    console.error('Error generating dynamic steps:', error);
+                    refreshButton.disabled = false;
+                    // Fallback to a default set of options in case of an error
+                    return [
+                         { title: '2. 小物を選んでみましょう', options: [{name: '猫', phrase: 'gently holding a fluffy cat'},{name: '花束', phrase: 'carrying a vibrant bouquet of sunflowers'},{name: 'イヤホン', phrase: 'with white wired earbuds'},{name: 'カメラ', phrase: 'with a vintage film camera'}]},
+                         { title: '3. 背景を選んでみましょう', options: [{name: '神社', phrase: 'in a quiet Japanese shrine garden'},{name: '駅のホーム', phrase: 'on a bustling train platform'},{name: '屋上', phrase: 'on a school rooftop at sunset'},{name: '森の中', phrase: 'in a dense, foggy forest'}]},
+                         { title: '4. ポーズを選んでみましょう', options: [{name: '恥ずかしそうに下を向く', phrase: 'looking down shyly'},{name: 'ピースサイン', phrase: 'making a peace sign'},{name: '楽しそうに走る', phrase: 'running and laughing happily'},{name: '壁にもたれる', phrase: 'leaning against a brick wall'}]},
+                         { title: '5. アングルを選んでみましょう', options: [{name: 'ローアングル', phrase: 'shot from a low-angle'},{name: 'ハイアングル', phrase: 'shot from a high-angle'},{name: 'ポートレート', phrase: 'a classic portrait shot'},{name: '後ろ姿', phrase: 'an over-the-shoulder perspective'}]},
+                         { title: '6. アクセントを追加してみましょう', options: [{name: '玉ボケ', phrase: 'with beautiful bokeh'},{name: '雨に濡れた髪', phrase: 'with her hair slightly wet'},{name: '鮮やかな影', phrase: 'with sharp, dynamic shadows'},{name: '桜吹雪', phrase: 'with cherry blossom petals'}]},
+                    ];
+                }
+            }
+
+            // Function to initialize or reset the app
+            async function initializeApp() {
+                const dynamicSteps = await generateDynamicSteps();
+                steps = staticSteps.concat(dynamicSteps);
+                currentStepIndex = 0;
+                generatedPrompt = '';
+                selectedOptions = Array(steps.length).fill(null);
+                renderStep();
+            }
+
+            // Function to refresh all steps except for the first one
+            async function refreshOptionsExceptNumber() {
+                const firstSelectedOption = selectedOptions[0];
+                const dynamicSteps = await generateDynamicSteps();
+                steps = staticSteps.concat(dynamicSteps);
+                selectedOptions = Array(steps.length).fill(null);
+                selectedOptions[0] = firstSelectedOption;
+                currentStepIndex = 1; // Reset to the second step
+                updatePrompt();
+                renderStep();
+            }
+
+            // Function to render the current step
+            function renderStep() {
+                const step = steps[currentStepIndex];
+                if (!step) {
+                    // This handles the case where we've reached the end
+                    stepView.innerHTML = `
+                        <h2 class="text-2xl font-semibold text-green-400">完成！</h2>
+                        <p class="text-gray-300 mt-2">下のボタンでプロンプトをコピーできます。</p>
+                        <button id="start-over" class="mt-6 bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-600 transition duration-200 focus:outline-none">最初からやり直す</button>
+                    `;
+                    document.getElementById('start-over').addEventListener('click', () => {
+                        initializeApp();
+                    });
+                    updatePromptDisplay();
+                    return;
+                }
+                
+                let html = `
+                    <h2 class="text-xl font-semibold mb-4 text-white">${step.title}</h2>
+                    <div class="grid grid-cols-2 gap-4 w-full px-4 sm:px-0 sm:w-2/3">
+                `;
+                step.options.forEach((option, index) => {
+                    const isSelected = selectedOptions[currentStepIndex] === index;
+                    const selectedClass = isSelected ? 'selected' : '';
+                    html += `
+                        <button class="option-button bg-gray-600 text-gray-200 py-3 px-4 rounded-lg shadow-md hover:bg-gray-700 transition duration-200 ${selectedClass}"
+                                data-index="${index}">${option.name}</button>
+                    `;
+                });
+                html += `</div>`;
+                
+                // Add navigation buttons
+                html += `<div class="mt-6 flex justify-between w-full px-4 sm:px-0 sm:w-2/3">`;
+                if (currentStepIndex > 0) {
+                    html += `<button id="prev-button" class="w-1/3 bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-gray-600 transition duration-200 focus:outline-none">戻る</button>`;
                 } else {
-                    downloadButton.classList.remove('hidden'); // 少なくとも1枚の画像が生成されたらボタンを表示
+                    html += `<div class="w-1/3"></div>`;
                 }
-            } catch (error) {
-                console.error("全体的な生成エラー:", error);
-                showMessage(`画像の生成中に予期せぬエラーが発生しました。\n詳細: ${error.message}`);
-            } finally {
-                // UIの状態をリセット
-                generateButton.disabled = false;
-                generateButton.textContent = "画像を生成";
-                loadingSpinner.classList.add('hidden');
-            }
-        });
+                html += `<button id="next-button" class="w-1/3 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition duration-200 focus:outline-none">次へ</button>`;
+                html += `</div>`;
 
-        // 選択した画像をダウンロードする機能
-        downloadButton.addEventListener('click', () => {
-            const selectedImages = document.querySelectorAll('#image-container .selected img');
-            if (selectedImages.length === 0) {
-                showMessage("保存する画像を1つ以上選択してください。");
-                return;
+                stepView.innerHTML = html;
+                updatePromptDisplay();
+                attachEventListeners();
             }
 
-            selectedImages.forEach((imgElement, index) => {
-                const link = document.createElement('a');
-                link.href = imgElement.src;
-                link.download = `generated_image_${index + 1}.png`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+            // Function to handle event listeners
+            function attachEventListeners() {
+                // Option buttons
+                stepView.querySelectorAll('.option-button').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const optionIndex = parseInt(button.dataset.index);
+                        selectedOptions[currentStepIndex] = optionIndex;
+                        updatePrompt();
+                        renderStep(); // Re-render to show selection
+                    });
+                });
+
+                // Next button
+                const nextButton = document.getElementById('next-button');
+                if (nextButton) {
+                    nextButton.addEventListener('click', () => {
+                        if (selectedOptions[currentStepIndex] !== null) {
+                            currentStepIndex++;
+                            if (currentStepIndex < steps.length) {
+                                renderStep();
+                            } else {
+                                // Final step completed
+                                renderStep();
+                            }
+                        }
+                    });
+                }
+                
+                // Previous button
+                const prevButton = document.getElementById('prev-button');
+                if (prevButton) {
+                    prevButton.addEventListener('click', () => {
+                        currentStepIndex--;
+                        renderStep();
+                    });
+                }
+            }
+
+            // Function to update the prompt string
+            function updatePrompt() {
+                const selectedNumber = selectedOptions[0] !== null ? steps[0].options[selectedOptions[0]].subject : 'A realistic smartphone photo of a person';
+                const accessory = selectedOptions[1] !== null ? steps[1].options[selectedOptions[1]].phrase : '';
+                const background = selectedOptions[2] !== null ? steps[2].options[selectedOptions[2]].phrase : '';
+                const pose = selectedOptions[3] !== null ? steps[3].options[selectedOptions[3]].phrase : '';
+                const angle = selectedOptions[4] !== null ? steps[4].options[selectedOptions[4]].phrase : '';
+                const accent = selectedOptions[5] !== null ? steps[5].options[selectedOptions[5]].phrase : '';
+
+                // Build the final prompt string
+                let parts = [selectedNumber, BASE_PROMPT_PARTS.clothing, accessory, pose, background, angle, accent, BASE_PROMPT_PARTS.style];
+                
+                generatedPrompt = parts.filter(Boolean).join('. ').replace(/\s\s+/g, ' ') + '.';
+
+                updatePromptDisplay();
+            }
+
+            // Function to update the prompt display
+            function updatePromptDisplay() {
+                promptDisplay.textContent = generatedPrompt;
+            }
+
+            // Copy button logic
+            copyButton.addEventListener('click', () => {
+                const textarea = document.createElement('textarea');
+                textarea.value = generatedPrompt.trim();
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    showMessageBox();
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                }
+                document.body.removeChild(textarea);
             });
-            showMessage(`${selectedImages.length}枚の画像を保存しました。`);
+
+            // Refresh button logic
+            refreshButton.addEventListener('click', () => {
+                refreshOptionsExceptNumber();
+            });
+
+            // Show and hide the message box
+            function showMessageBox() {
+                messageBox.classList.add('show');
+                setTimeout(() => {
+                    messageBox.classList.remove('show');
+                }, 2000);
+            }
+
+            // Initial render
+            initializeApp();
         });
     </script>
 </body>
