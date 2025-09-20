@@ -3,349 +3,285 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>画像生成＆保存アプリ</title>
+    <title>実写画像生成アプリ</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f0f4f8;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
+            background-color: #f3f4f6;
+            color: #1f2937;
         }
-        .container {
-            background-color: white;
-            padding: 2.5rem;
-            border-radius: 1.5rem;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            max-width: 800px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-        .message-box {
-            padding: 1rem;
-            background-color: #e2e8f0;
-            border-radius: 0.75rem;
-            text-align: center;
-            font-size: 0.875rem;
-            color: #4b5563;
-        }
-        .button-primary {
-            background-color: #4f46e5;
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.75rem;
-            transition: background-color 0.2s, transform 0.2s;
-            cursor: pointer;
-        }
-        .button-primary:hover {
-            background-color: #4338ca;
-            transform: translateY(-2px);
-        }
-        .button-disabled {
-            background-color: #9ca3af;
-            cursor: not-allowed;
-        }
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #4f46e5;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .image-card {
-            background-color: #e2e8f0;
-            border-radius: 1rem;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            cursor: pointer;
-            border: 4px solid transparent;
-            transition: border-color 0.2s;
-        }
-        .image-card.selected {
-            border-color: #4f46e5;
-        }
-        .image-card img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 1rem;
-            display: block;
-        }
+
         .image-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-        }
-        .selection-info {
-            font-weight: bold;
-            text-align: center;
-            color: #4b5563;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem; /* Tailwind 'gap-6' */
         }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-    <div class="container">
-        <h1 class="text-3xl font-bold text-center text-gray-800">画像生成＆保存</h1>
-        <div class="message-box" id="messageBox">ここにメッセージが表示されます。</div>
+<body class="flex items-center justify-center min-h-screen p-4 md:p-8">
+    <div class="bg-white p-6 md:p-10 rounded-3xl shadow-2xl w-full max-w-2xl text-center">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">実写画像ジェネレーター</h1>
+        <p class="text-gray-600 mb-8">テキストプロンプトを入力すると、1枚のユニークな実写画像が自動的に生成されます。</p>
 
-        <div class="flex flex-col sm:flex-row items-center gap-4">
-            <input type="text" id="promptInput" placeholder="生成したい画像の説明を入力..." class="flex-grow w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <button id="generateBtn" class="button-primary font-bold text-lg w-full sm:w-auto flex items-center justify-center gap-2">
-                生成
-                <div id="loader" class="loader hidden"></div>
+        <form id="image-form" class="space-y-6">
+            <input type="text" id="prompt-input" placeholder="例：美しい夕日の下を歩く犬" class="w-full px-5 py-3 text-gray-800 placeholder-gray-400 border border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-500 focus:border-transparent transition duration-300 ease-in-out" required>
+            
+            <button type="submit" id="generate-button" class="w-full px-6 py-3 font-semibold text-white bg-blue-600 rounded-xl shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 transition duration-300 ease-in-out disabled:bg-gray-400 disabled:cursor-not-allowed">
+                画像を生成
             </button>
-            <button id="loadPromptBtn" class="button-primary font-bold text-lg w-full sm:w-auto">低いアングル</button>
-            <button id="loadPromptBtn2" class="button-primary font-bold text-lg w-full sm:w-auto">アングルなし</button>
+        </form>
+
+        <div id="loading-spinner" class="mt-8 hidden">
+            <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-e-transparent align-[-0.125em] text-blue-600" role="status">
+                <span class="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">読み込み中...</span>
+            </div>
+            <p class="text-gray-500 mt-2">画像を生成中...</p>
         </div>
 
-        <!-- 上部の保存ボタン -->
-        <button id="saveBtnTop" class="button-primary font-bold text-lg button-disabled" disabled>画像を保存</button>
-        <p id="selectionInfoTop" class="selection-info">0 枚の画像を選択済み</p>
-        
-        <div id="outputContainer" class="image-grid">
-            <!-- 生成された画像がここに追加されます -->
+        <div id="image-container" class="mt-8 image-grid">
+            <!-- 生成された画像がここに表示されます -->
         </div>
 
-        <!-- 下部の保存ボタン -->
-        <button id="saveBtnBottom" class="button-primary font-bold text-lg button-disabled" disabled>画像を保存</button>
-        <p id="selectionInfoBottom" class="selection-info">0 枚の画像を選択済み</p>
+        <button id="download-button" class="mt-6 w-full px-6 py-3 font-semibold text-white bg-green-600 rounded-xl shadow-lg hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-50 transition duration-300 ease-in-out hidden">
+            選択した画像をダウンロード
+        </button>
 
+        <!-- カスタムモーダルメッセージボックス -->
+        <div id="message-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-900 bg-opacity-50 p-4">
+            <div class="bg-white rounded-xl p-8 max-w-sm text-center shadow-lg">
+                <p id="modal-text" class="text-gray-800 font-semibold mb-4"></p>
+                <button id="modal-close-button" class="px-6 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition">OK</button>
+            </div>
+        </div>
     </div>
 
-    // 開発時のみ有効
-const API_KEY = process.env.VITE_GEMINI_API_KEY;
-const response = await fetch(`https://generativelanguage.googleapis.com/...`, {
-  // ...
-  headers: {
-    'x-api-key': API_KEY, // AIzaSyC_CG-uZva94ZFbb5u4WDHlDWbbnvTLboc
-  },
-});
-
     <script>
-        const promptInput = document.getElementById('promptInput');
-        const generateBtn = document.getElementById('generateBtn');
-        const saveBtnTop = document.getElementById('saveBtnTop');
-        const saveBtnBottom = document.getElementById('saveBtnBottom');
-        const outputContainer = document.getElementById('outputContainer');
-        const messageBox = document.getElementById('messageBox');
-        const loader = document.getElementById('loader');
-        const selectionInfoTop = document.getElementById('selectionInfoTop');
-        const selectionInfoBottom = document.getElementById('selectionInfoBottom');
-        const loadPromptBtn = document.getElementById('loadPromptBtn');
-        const loadPromptBtn2 = document.getElementById('loadPromptBtn2');
+        // DOM要素の取得
+        const form = document.getElementById('image-form');
+        const promptInput = document.getElementById('prompt-input');
+        const generateButton = document.getElementById('generate-button');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const imageContainer = document.getElementById('image-container');
+        const downloadButton = document.getElementById('download-button');
+        const messageModal = document.getElementById('message-modal');
+        const modalText = document.getElementById('modal-text');
+        const modalCloseButton = document.getElementById('modal-close-button');
 
-        const apiKey = "";
-        
-        let generatedBlobs = new Map();
-        let selectedBlobs = new Map();
+        // プロンプトのバリエーションに使用する単語リスト
+        const styles = ['超高精細', '写真写実的', '映画のような照明', 'ポートレート', 'デジタルアート', 'コンセプトアート', 'コミックアート', 'ピクセルアート', '水彩画', '油絵', 'インク画'];
+        const cameras = ['一眼レフカメラで撮影', '手持ちカメラ', '広角レンズ', '望遠レンズ', 'ドローンからの眺め', 'マクロレンズ', 'シネマティックカメラ', 'ヴィンテージレンズ', 'パンショット', 'ティルトショット', 'ズームイン', 'ズームアウト', 'クレーンショット', 'ドリーショット', '手ブレ補正付き'];
+        const lightings = ['自然光', '柔らかな照明', 'ゴールデンアワー', 'ドラマチックな影', 'スタジオ照明', '蛍光灯', 'ネオンサイン', '逆光', '夕暮れ時の光'];
+        const locations = ['都市の風景', '自然の風景', '室内', '屋上', '宇宙空間', '水中', 'ジャングル', '廃墟', '古代の遺跡'];
+        const perspectives = ['ローアングル', 'ハイアングル', '一人称視点', 'クローズアップショット', '全身ショット', '遠景', '鳥瞰図', 'アイレベルショット', 'ショルダーショット', 'ヒップショット', '地面からの視点', '空中からの視点'];
 
-        const predefinedPrompt = `**全体的な構図と視点:**
-画像は低いアングルから上方向を見上げるような視点、フレームの端に向かうにつれて画像が丸く歪んでおり、まるで覗き穴から見ているような、あるいは監視カメラの映像のような独特の雰囲気があります。フレームの周囲は暗く（ビネット効果）、中央の被写体に視線が集まるようになっています。`;
-
-        const predefinedPrompt2 = `**全体的な構図と視点:**
-フレームの端に向かうにつれて画像が丸く歪んでおり、まるで覗き穴から見ているような、あるいは監視カメラの映像のような独特の雰囲気があります。フレームの周囲は暗く（ビネット効果）、中央の被写体に視線が集まるようになっています。`;
-
-        function showMessage(text, isError = false) {
-            messageBox.textContent = text;
-            messageBox.style.backgroundColor = isError ? '#fee2e2' : '#dbeafe';
-            messageBox.style.color = isError ? '#991b1b' : '#1e40af';
+        // メッセージモーダルを表示する関数
+        function showMessage(message) {
+            modalText.textContent = message;
+            messageModal.classList.remove('hidden');
+            modalText.classList.remove('hidden');
+            modalCloseButton.classList.remove('hidden');
+            messageModal.classList.add('flex');
         }
 
-        function setButtonState(generating) {
-            generateBtn.disabled = generating;
-            generateBtn.classList.toggle('button-disabled', generating);
-            loader.classList.toggle('hidden', !generating);
-            generateBtn.textContent = generating ? '生成中...' : '生成';
-            loadPromptBtn.disabled = generating;
-            loadPromptBtn2.disabled = generating;
+        // メッセージモーダルを非表示にする関数
+        function hideMessage() {
+            modalText.textContent = "";
+            messageModal.classList.add('hidden');
+            messageModal.classList.remove('flex');
         }
 
-        function updateSaveButtons() {
-            const hasSelection = selectedBlobs.size > 0;
-            const buttonClassList = [saveBtnTop.classList, saveBtnBottom.classList];
-            const infoText = `${selectedBlobs.size} 枚の画像を選択済み`;
+        modalCloseButton.addEventListener('click', hideMessage);
 
-            saveBtnTop.disabled = !hasSelection;
-            saveBtnBottom.disabled = !hasSelection;
-            
-            buttonClassList.forEach(list => list.toggle('button-disabled', !hasSelection));
-            
-            selectionInfoTop.textContent = infoText;
-            selectionInfoBottom.textContent = infoText;
-        }
-
-        function createAndDisplayImageElement(base64Data, index) {
-            return new Promise((resolve) => {
-                const tempImage = new Image();
-                tempImage.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const targetRatio = 3 / 4;
-                    let cropWidth, cropHeight, cropX, cropY;
-
-                    if (tempImage.width / tempImage.height > targetRatio) {
-                        cropHeight = tempImage.height;
-                        cropWidth = tempImage.height * targetRatio;
-                        cropX = (tempImage.width - cropWidth) / 2;
-                        cropY = 0;
-                    } else {
-                        cropWidth = tempImage.width;
-                        cropHeight = tempImage.width / targetRatio;
-                        cropX = 0;
-                        cropY = (tempImage.height - cropHeight) / 2;
-                    }
-
-                    canvas.width = cropWidth;
-                    canvas.height = cropHeight;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(tempImage, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-
-                    canvas.toBlob(blob => {
-                        const imageId = `image-${Date.now()}-${index}`;
-                        generatedBlobs.set(imageId, blob);
-                        
-                        const imageCard = document.createElement('div');
-                        imageCard.className = 'image-card';
-                        imageCard.dataset.imageId = imageId;
-
-                        const imageUrl = URL.createObjectURL(blob);
-                        const img = document.createElement('img');
-                        img.src = imageUrl;
-                        img.alt = `Generated Image ${index + 1}`;
-                        
-                        imageCard.appendChild(img);
-                        outputContainer.appendChild(imageCard);
-
-                        imageCard.addEventListener('click', () => {
-                            if (imageCard.classList.contains('selected')) {
-                                imageCard.classList.remove('selected');
-                                selectedBlobs.delete(imageId);
-                            } else {
-                                imageCard.classList.add('selected');
-                                selectedBlobs.set(imageId, blob);
-                            }
-                            updateSaveButtons();
-                        });
-                        resolve();
-                    }, 'image/jpeg', 0.9);
-                };
-                tempImage.src = `data:image/png;base64,${base64Data}`;
-            });
-        }
-        
-        async function generateImages(prompt, count) {
-            setButtonState(true);
-            outputContainer.innerHTML = '';
-            generatedBlobs.clear();
-            selectedBlobs.clear();
-            updateSaveButtons();
-            
-            showMessage(`画像を${count}枚生成しています...`);
-
-            for (let i = 0; i < count; i++) {
-                try {
-                    const payload = {
-                        contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-                    };
-
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`APIエラー: ${response.status}`);
-                    }
-                    const result = await response.json();
-                    
-                    const candidate = result?.candidates?.[0];
-                    if (candidate && candidate.content?.parts?.find(p => p.inlineData)) {
-                        const base64Data = candidate.content.parts.find(p => p.inlineData).inlineData.data;
-                        await createAndDisplayImageElement(base64Data, i);
-                        showMessage(`${i + 1}/${count}枚の画像が生成されました。`);
-                    } else if (candidate && candidate.finishReason === 'PROHIBITED_CONTENT') {
-                        console.error('APIレスポンスに画像データがありませんでした:', result);
-                        showMessage('プロンプトが不適切なコンテンツとして判断されました。別の表現を試してください。', true);
-                        setButtonState(false);
-                        return;
-                    } else if (candidate && candidate.content?.parts?.[0]?.text) {
-                        console.error('APIレスポンスに画像データがありませんでした:', result);
-                        showMessage('APIが画像ではなくテキストを返しました。プロンプトを具体的に書き換えて再度試してください。', true);
-                        setButtonState(false);
-                        return;
-                    } else {
-                        console.error('APIレスポンスに画像データがありませんでした:', result);
-                        showMessage('APIが予期しない形式の応答を返しました。プロンプトを変更して再度試してください。', true);
-                        setButtonState(false);
-                        return;
-                    }
-                } catch (error) {
-                    console.error('画像生成エラー:', error);
-                    showMessage(`エラーが発生しました。${i + 1}枚目以降の生成を中止します。`);
-                    break;
+        /**
+         * 指数バックオフ付きのフェッチ関数
+         * @param {string} url - API URL
+         * @param {object} options - フェッチオプション
+         * @param {number} retries - 残りの再試行回数
+         * @param {number} delay - 次の再試行までの遅延時間（ミリ秒）
+         */
+        async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`APIエラー: ${response.statusText}. 詳細: ${JSON.stringify(errorData)}`);
+                }
+                return response;
+            } catch (error) {
+                if (retries > 0) {
+                    console.warn(`フェッチ失敗。再試行... 残り: ${retries}`);
+                    await new Promise(res => setTimeout(res, delay));
+                    return fetchWithRetry(url, options, retries - 1, delay * 2);
+                } else {
+                    throw error;
                 }
             }
-            setButtonState(false);
-            if (generatedBlobs.size === count) {
-                showMessage('すべての画像の生成が完了しました。');
-            }
         }
-
-        generateBtn.addEventListener('click', () => {
-            const userPrompt = promptInput.value.trim();
-            if (!userPrompt) {
-                showMessage('プロンプトを入力してください。', true);
-                return;
-            }
-            generateImages(userPrompt, 1);
-        });
         
-        function handleSaveClick() {
-            if (selectedBlobs.size === 0) {
-                showMessage('保存する画像を選択してください。', true);
-                return;
-            }
-            
-            selectedBlobs.forEach((blob, id) => {
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `${id}.jpg`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+        /**
+         * 画像を特定の寸法にリサイズする関数
+         * @param {string} base64Data - リサイズする画像のBase64データ
+         * @param {number} targetWidth - ターゲットの幅
+         * @param {number} targetHeight - ターゲットの高さ
+         * @returns {Promise<string>} - リサイズされた画像のデータURL
+         */
+        function resizeImage(base64Data, targetWidth, targetHeight) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = targetWidth;
+                    canvas.height = targetHeight;
+                    const ctx = canvas.getContext('2d');
+                    // 画像の元の縦横比を維持しながら描画
+                    const originalAspect = img.width / img.height;
+                    const targetAspect = targetWidth / targetHeight;
+                    let drawWidth, drawHeight, offsetX, offsetY;
+                    if (originalAspect > targetAspect) {
+                        drawHeight = targetHeight;
+                        drawWidth = img.width * (targetHeight / img.height);
+                        offsetX = (targetWidth - drawWidth) / 2;
+                        offsetY = 0;
+                    } else {
+                        drawWidth = targetWidth;
+                        drawHeight = img.height * (targetWidth / img.width);
+                        offsetX = 0;
+                        offsetY = (targetHeight - drawHeight) / 2;
+                    }
+                    ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.src = `data:image/png;base64,${base64Data}`;
             });
-            showMessage(`${selectedBlobs.size}枚の画像を保存しました。`);
         }
-
-        loadPromptBtn.addEventListener('click', () => {
-            promptInput.value = predefinedPrompt;
-            showMessage('プロンプトが入力されました。「生成」ボタンを押してください。');
-        });
         
-        loadPromptBtn2.addEventListener('click', () => {
-            promptInput.value = predefinedPrompt2;
-            showMessage('プロンプトが入力されました。「生成」ボタンを押してください。');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userPrompt = promptInput.value.trim();
+
+            if (!userPrompt) {
+                showMessage("プロンプトを入力してください。");
+                return;
+            }
+
+            // UIの状態を更新
+            generateButton.disabled = true;
+            generateButton.textContent = "生成中...";
+            loadingSpinner.classList.remove('hidden');
+            imageContainer.innerHTML = '';
+            downloadButton.classList.add('hidden'); // ダウンロードボタンを非表示にする
+
+            try {
+                const totalImages = 1;
+                const generationPromises = [];
+
+                // 1枚の画像を生成するためのPromiseを配列に追加
+                for (let i = 0; i < totalImages; i++) {
+                    const randomStyle = styles[Math.floor(Math.random() * styles.length)];
+                    const randomCamera = cameras[Math.floor(Math.random() * cameras.length)];
+                    const randomLighting = lightings[Math.floor(Math.random() * lightings.length)];
+                    const randomLocation = locations[Math.floor(Math.random() * locations.length)];
+                    const randomPerspective = perspectives[Math.floor(Math.random() * perspectives.length)];
+
+                    const formattedPrompt = `${userPrompt}, ${randomStyle}, ${randomCamera}, ${randomLighting}, ${randomLocation}, ${randomPerspective}`;
+
+                    const payload = {
+                        instances: [{ prompt: formattedPrompt }],
+                        parameters: {
+                            "sampleCount": 1
+                        }
+                    };
+
+                    const apiKey = "";
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+
+                    // Promiseを配列に追加
+                    generationPromises.push(
+                        fetchWithRetry(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        })
+                        .then(response => response.json())
+                        .catch(error => {
+                            console.error(`画像の生成に失敗しました（${i + 1}回目）:`, error);
+                            return null; // 失敗した場合はnullを返す
+                        })
+                    );
+                }
+
+                // すべてのPromiseが完了するまで待機
+                const results = await Promise.all(generationPromises);
+                let successfulImages = 0;
+
+                for (const result of results) {
+                    if (result && result.predictions && result.predictions.length > 0) {
+                        const prediction = result.predictions[0];
+                        if (prediction.bytesBase64Encoded) {
+                            // 画像のリサイズ
+                            const resizedImageUrl = await resizeImage(prediction.bytesBase64Encoded, 270, 480);
+
+                            const imageWrapper = document.createElement('div');
+                            // 画像の選択を可能にするために'relative'クラスを追加し、クリックリスナーを追加
+                            imageWrapper.className = "relative aspect-[9/16] overflow-hidden rounded-2xl shadow-xl border-4 border-transparent hover:border-blue-500 transition-all cursor-pointer";
+                            
+                            const imgElement = document.createElement('img');
+                            imgElement.src = resizedImageUrl;
+                            imgElement.alt = userPrompt;
+                            imgElement.className = "w-full h-full object-cover";
+
+                            // クリックイベントリスナーを追加して選択状態を切り替える
+                            imageWrapper.addEventListener('click', () => {
+                                // 選択状態をトグル
+                                imageWrapper.classList.toggle('border-blue-500');
+                                imageWrapper.classList.toggle('border-transparent');
+                                imageWrapper.classList.toggle('selected');
+                            });
+
+                            imageWrapper.appendChild(imgElement);
+                            imageContainer.appendChild(imageWrapper);
+                            successfulImages++;
+                        }
+                    }
+                }
+
+                if (successfulImages === 0) {
+                    showMessage("画像の生成に失敗しました。別のプロンプトを試してください。");
+                } else {
+                    downloadButton.classList.remove('hidden'); // 少なくとも1枚の画像が生成されたらボタンを表示
+                }
+            } catch (error) {
+                console.error("全体的な生成エラー:", error);
+                showMessage(`画像の生成中に予期せぬエラーが発生しました。\n詳細: ${error.message}`);
+            } finally {
+                // UIの状態をリセット
+                generateButton.disabled = false;
+                generateButton.textContent = "画像を生成";
+                loadingSpinner.classList.add('hidden');
+            }
         });
 
-        saveBtnTop.addEventListener('click', handleSaveClick);
-        saveBtnBottom.addEventListener('click', handleSaveClick);
+        // 選択した画像をダウンロードする機能
+        downloadButton.addEventListener('click', () => {
+            const selectedImages = document.querySelectorAll('#image-container .selected img');
+            if (selectedImages.length === 0) {
+                showMessage("保存する画像を1つ以上選択してください。");
+                return;
+            }
 
-        showMessage('プロンプトを入力して「生成」ボタンを押してください。');
+            selectedImages.forEach((imgElement, index) => {
+                const link = document.createElement('a');
+                link.href = imgElement.src;
+                link.download = `generated_image_${index + 1}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+            showMessage(`${selectedImages.length}枚の画像を保存しました。`);
+        });
     </script>
 </body>
 </html>
